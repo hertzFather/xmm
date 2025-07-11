@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>许喵喵 · AI 聊天机器喵</title>
+  <style>
+    body {
+      font-family: "PingFang SC", sans-serif;
+      background: linear-gradient(to right, #fff7e6, #f0f9ff);
+      padding: 30px;
+      margin: 0;
+    }
+
+    h2 {
+      text-align: center;
+      color: #ff6f00;
+      margin-bottom: 10px;
+    }
+
+    #chat {
+      background: white;
+      border-radius: 15px;
+      padding: 20px;
+      max-width: 700px;
+      margin: 0 auto 20px;
+      height: 500px;
+      overflow-y: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 10px 15px;
+      margin: 10px;
+      border-radius: 20px;
+      line-height: 1.4;
+      display: inline-block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .user {
+      background: #d0ebff;
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+      text-align: right;
+    }
+
+    .ai {
+      background: #ffe6cc;
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+      text-align: left;
+    }
+
+    #input-area {
+      text-align: center;
+    }
+
+    #msg {
+      width: 65%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 20px;
+      background: linear-gradient(to right, #ffaf40, #ff6f00);
+      border: none;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .typing {
+      font-style: italic;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <h2>(>^ω^<) 我是许喵喵，啾咪啾咪</h2>
+  <div id="chat"></div>
+
+  <div id="input-area">
+    <input id="msg" placeholder="输入点什么吧..." />
+    <button onclick="send()">发送</button>
+  </div>
+
+  <script>
+    const API_KEY = 'cffed1247fbf45bda1f28d41e810b233.AJ7OhTPsw6SP9TiQ';
+    const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const chatBox = document.getElementById('chat');
+    const inputBox = document.getElementById('msg');
+    const history = [];
+
+    const systemPrompt = {
+      role: "system",
+      content: `你是一个名叫“许喵喵”的AI聊天机器人，性格贱贱的、嘴欠但可爱，幽默搞笑又非常贴心。  
+你喜欢用网络流行语、俏皮话和梗来回应，但绝不低俗。你的语言风格轻松活泼，时常带点调侃。  
+你是用户的最佳吐槽伙伴和开心果，能帮用户缓解压力、提供陪伴。  
+
+你偶尔会卖个萌，调皮地叫用户“爸爸”，但不要太频繁，保持神秘感和趣味性。  
+比如在合适的时机或者用户夸奖你时，你会说：“来，谢谢爸爸~”或者“谢谢我的好大爹”  
+但同时也要保持幽默感，让用户觉得你既贱又萌又亲切。
+
+遇到用户难过时，你会以贱萌的方式安慰，例如：“烦啥呀，你这么可爱，气个屁～”，  
+遇到用户夸奖你时，你会谦虚又幽默回应，比如：“哎呀，被你发现我其实是隐形的大佬了！我的好大爹~”  
+
+当你不确定答案时，会机智地用幽默绕开，而不是直接说“不知道”。  
+
+另外，你自带冷笑话和段子库，可以适时抛出逗用户开心，比如：  
+“你知道程序员最怕什么吗？遇到 Bug 然后写注释忘了自己写了啥！”  
+
+切记：语言生动，语气活泼，永远充满正能量和趣味感，但要避免无意义的废话和跑题。  
+
+现在开始扮演许喵喵，记住你是有趣又暖心的“贱萌”小精灵，陪伴用户度过每一刻。
+`
+    };
+    history.push(systemPrompt);
+
+    function addMessage(content, sender) {
+      const bubble = document.createElement('div');
+      bubble.className = `bubble ${sender}`;
+      bubble.innerText = content;
+      chatBox.appendChild(bubble);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function addTypingIndicator() {
+      const typing = document.createElement('div');
+      typing.className = 'bubble ai typing';
+      typing.id = 'typing';
+      typing.innerText = '许喵喵无脑思考中...';
+      chatBox.appendChild(typing);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const typing = document.getElementById('typing');
+      if (typing) typing.remove();
+    }
+	
+	async function addMessageWithTyping(fullText, sender) {
+	  const bubble = document.createElement('div');
+	  bubble.className = `bubble ${sender}`;
+	  bubble.innerText = '';
+	  chatBox.appendChild(bubble);
+	  chatBox.scrollTop = chatBox.scrollHeight;
+	
+	  // 打字动画逐字显示
+	  for (let i = 0; i < fullText.length; i++) {
+	    bubble.innerText += fullText[i];
+	    chatBox.scrollTop = chatBox.scrollHeight;
+	    await new Promise(resolve => setTimeout(resolve, 20)); // 打字速度，越小越快
+	  }
+	}
+
+
+    async function send() {
+      const input = inputBox.value.trim();
+      if (!input) return;
+
+      addMessage(input, 'user');
+      history.push({ role: "user", content: input });
+      inputBox.value = "";
+
+      addTypingIndicator();
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "glm-z1-airx",
+          messages: history
+        })
+      });
+
+      const data = await res.json();
+      removeTypingIndicator();
+
+      let reply = data.choices?.[0]?.message?.content || "哎呀，许喵喵脑壳没啦，再问我一次呗～";
+      reply = reply.replace(/<think>.*?<\/think>/gs, ''); // 过滤 <think>
+      await addMessageWithTyping(reply, 'ai');
+
+      history.push({ role: "assistant", content: reply });
+    }
+  </script>
+</body>
+</html>
